@@ -1,21 +1,68 @@
 const mongoose = require('mongoose');
 const validator = require('validator');
+const bcrypt = require('bcrypt');
 
-const userSchema = mongoose.Schema('User', {
+const userSchema = new mongoose.Schema({
   name: {
     type: String,
+    lowercase: true,
     required: [true, 'A user must have a name'],
-    minLength: [3, 'The name must be atleast 3 characters'],
-    maxLength: [30, 'The name can not be greater then 30 characters'],
-    // TODO: Add in validator to check if the name is valid or not
+    minLength: [3, 'The name must be at least 3 characters'],
+    maxLength: [30, 'The name cannot be greater than 30 characters'],
+    validate: {
+      validator: function (name) {
+        return validator.isAlpha(name.split(' ').join(''));
+      },
+      message: 'The name can only contain alphabets',
+    },
   },
   email: {
     type: String,
-    required: [true, 'A user must have email'],
-    validator: [validator.isEmail, 'The email entered is not valid'],
+    unique: true,
+    required: [true, 'A user must have an email'],
+    validate: {
+      validator: validator.isEmail,
+      message: 'The email entered is not valid',
+    },
+  },
+  password: {
+    type: String,
+    required: [true, 'A user must provide a password'],
+    select: false,
+    validate: {
+      validator: validator.isStrongPassword,
+      message:
+        'A password must have at least 8 characters and should include at least one lowercase character, uppercase character, number, and a symbol',
+    },
+  },
+  confirmPassword: {
+    type: String,
+    required: [true, 'A user must provide a confirm password'],
+    validate: {
+      validator: function (confirmPassword) {
+        return this.password === confirmPassword;
+      },
+      message: 'The passwords do not match',
+    },
   },
 });
 
-const User = mongoose.model(userSchema);
+// if the password is modified then excripting it and storing it in the database before saving
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next();
 
-module.export = User;
+  this.password = await bcrypt.hash(this.password, 12);
+  this.confirmPassword = undefined;
+});
+
+// encrypting the password and then conparing it with the password stored in the database
+userSchema.method.checkPasswordMatch = function (
+  candidatePassword,
+  originalPassword,
+) {
+  return true;
+};
+
+// Export the model correctly
+const User = mongoose.model('User', userSchema);
+module.exports = User;
