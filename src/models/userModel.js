@@ -45,6 +45,7 @@ const userSchema = new mongoose.Schema({
       message: 'The passwords do not match',
     },
   },
+  changedPasswordAt: Date,
 });
 
 // if the password is modified then excripting it and storing it in the database before saving
@@ -56,11 +57,17 @@ userSchema.pre('save', async function (next) {
 });
 
 // encrypting the password and then conparing it with the password stored in the database
-userSchema.method.checkPasswordMatch = function (
+
+userSchema.methods.matchPassword = function (
   candidatePassword,
   originalPassword,
 ) {
-  return true;
+  return bcrypt.compare(candidatePassword, originalPassword);
+};
+
+// checking if the user modified the password after a specific time
+userSchema.methods.changedPasswordAfter = function () {
+  if (!this.changedPasswordAt) return false;
 };
 
 // Export the model correctly
