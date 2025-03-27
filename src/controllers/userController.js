@@ -1,5 +1,7 @@
+// TODO: UPDATE USER
+
 exports.getUser = (req, res, next) => {
-  res.json(req.user);
+  res.json({ user: req.user });
 };
 
 exports.updateUser = (req, res, next) => {};

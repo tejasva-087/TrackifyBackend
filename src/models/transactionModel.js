@@ -14,7 +14,10 @@ const transactionSchema = mongoose.Schema({
   shortDescription: {
     type: String,
     required: true,
-    minLength: [50, 'Please enter a consize description of 50 characters.'],
+    minLength: [
+      50,
+      'Please enter a consize description of not greater then 50 characters.',
+    ],
   },
   date: {
     type: Date,

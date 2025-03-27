@@ -15,6 +15,11 @@ const participantSchema = new mongoose.Schema({
       message: 'The name can only contain alphabets',
     },
   },
+  relatedTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
 });
 
 const Participant = mongoose.model('Participant', participantSchema);
