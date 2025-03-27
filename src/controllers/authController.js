@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/userModel');
 const AppError = require('../utils/AppError');
 const catchAcync = require('../utils/catchAcync');
+const sendMail = require('../utils/email');
 
 exports.signUp = catchAcync(async (req, res, next) => {
   // 1) creating new user
@@ -117,6 +118,29 @@ exports.protect = catchAcync(async (req, res, next) => {
   next();
 });
 
-exports.resetPassword = catchAcync(async (req, res, next) => {});
+exports.forgotPassword = catchAcync(async (req, res, next) => {
+  if (!req.body.email)
+    return next(new AppError('Please provide a valid email'));
 
-exports.forgotPassword = catchAcync(async (req, res, next) => {});
+  const user = await User.findOne({ email: req.body.email });
+
+  if (!user) return next(new AppError('Pelase provide a valid email'));
+
+  user.createPasswordResetToken();
+
+  const resetURL = `${req.protocol}://${req.get('host')}/user/resetPassword/${user.resetToken}`;
+  const message = `Forgot your password? Submit a patch request with your new password and passwordConfirm to ${resetURL}\n if you didnt forget your password, please ignore thie email`;
+
+  sendMail({
+    to: user.email,
+    subject: 'Your password reset token (valid for 10 min)',
+    message,
+  });
+
+  res.status(200).json({
+    status: 'success',
+    message: 'The reset link has been shared to your email',
+  });
+});
+
+exports.resetPassword = catchAcync(async (req, res, next) => {});

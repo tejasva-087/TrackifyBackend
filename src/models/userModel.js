@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const validator = require('validator');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -46,10 +47,8 @@ const userSchema = new mongoose.Schema({
     },
   },
   changedPasswordAt: Date,
-  totalBalance: {
-    type: Number,
-    default: 0,
-  },
+  resetToken: String,
+  resetTokenExpiresIn: Date,
 });
 
 // if the password is modified then excripting it and storing it in the database before saving
@@ -76,6 +75,18 @@ userSchema.methods.changedPasswordAfter = function (time) {
     return true;
   }
   return false;
+};
+
+// creating a user password reset token for user to reset the password
+userSchema.methods.createPasswordResetToken = function () {
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  this.resetToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+  this.resetTokenExpiresIn = Date.now() + 10 * 60 * 1000;
+
+  this.save({ validateBeforeSave: false });
 };
 
 // Export the model correctly
