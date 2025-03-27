@@ -46,6 +46,14 @@ const userSchema = new mongoose.Schema({
     },
   },
   changedPasswordAt: Date,
+  totalBalance: {
+    type: Number,
+    default: 0,
+  },
+  totalSpend: {
+    type: Number,
+    default: 0,
+  },
 });
 
 // if the password is modified then excripting it and storing it in the database before saving

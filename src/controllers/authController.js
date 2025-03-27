@@ -116,3 +116,7 @@ exports.protect = catchAcync(async (req, res, next) => {
   req.user = user;
   next();
 });
+
+exports.resetPassword = catchAcync(async (req, res, next) => {});
+
+exports.forgotPassword = catchAcync(async (req, res, next) => {});
