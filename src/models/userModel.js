@@ -66,8 +66,12 @@ userSchema.methods.matchPassword = function (
 };
 
 // checking if the user modified the password after a specific time
-userSchema.methods.changedPasswordAfter = function () {
+userSchema.methods.changedPasswordAfter = function (time) {
   if (!this.changedPasswordAt) return false;
+  if (this.changedPasswordAt.getTime() / 1000 > time) {
+    return true;
+  }
+  return false;
 };
 
 // Export the model correctly

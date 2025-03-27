@@ -11,6 +11,7 @@ exports.signUp = catchAcync(async (req, res, next) => {
     email: req.body.email,
     password: req.body.password,
     confirmPassword: req.body.confirmPassword,
+    changedPasswordAt: req.body.changedPasswordAt,
   });
 
   // creating a jwt token
@@ -27,9 +28,8 @@ exports.signUp = catchAcync(async (req, res, next) => {
   // sending back the users data and the token
   res.status(200).json({
     status: 'success',
+    token,
     data: {
-      status: 'success',
-      token,
       user: {
         id: user._id,
         name: user.name,
@@ -65,6 +65,13 @@ exports.login = catchAcync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     token,
+    data: {
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    },
   });
 });
 
@@ -87,7 +94,7 @@ exports.protect = catchAcync(async (req, res, next) => {
   const decoded = await jwt.verify(token, process.env.JWT_SECRET);
 
   // 3) checking if the user exist or not
-  const user = await User.findById(decoded.id);
+  const user = await User.findById(decoded.id).select('-changedPasswordAt');
 
   if (!user)
     return next(
@@ -97,7 +104,15 @@ exports.protect = catchAcync(async (req, res, next) => {
       ),
     );
   // 4) Checking if the user has changed the password and is using the old token
+  if (user.changedPasswordAfter(decoded.iat))
+    next(
+      new AppError(
+        'The token is not valid the user changed their password recently please log in again',
+        401,
+      ),
+    );
 
   // When every thing is fine this means the user that wants to access the route is valid and can continue with the request.
+  req.user = user;
   next();
 });
