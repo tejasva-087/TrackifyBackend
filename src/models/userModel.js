@@ -80,13 +80,14 @@ userSchema.methods.changedPasswordAfter = function (time) {
 // creating a user password reset token for user to reset the password
 userSchema.methods.createPasswordResetToken = function () {
   const resetToken = crypto.randomBytes(32).toString('hex');
+
   this.resetToken = crypto
     .createHash('sha256')
     .update(resetToken)
     .digest('hex');
   this.resetTokenExpiresIn = Date.now() + 10 * 60 * 1000;
 
-  this.save({ validateBeforeSave: false });
+  return resetToken;
 };
 
 // Export the model correctly

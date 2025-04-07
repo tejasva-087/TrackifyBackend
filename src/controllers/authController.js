@@ -1,5 +1,5 @@
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-
 const User = require('../models/userModel');
 const AppError = require('../utils/AppError');
 const catchAcync = require('../utils/catchAcync');
@@ -126,16 +126,28 @@ exports.forgotPassword = catchAcync(async (req, res, next) => {
 
   if (!user) return next(new AppError('Pelase provide a valid email'));
 
-  user.createPasswordResetToken();
+  const resetToken = user.createPasswordResetToken();
 
-  const resetURL = `${req.protocol}://${req.get('host')}/user/resetPassword/${user.resetToken}`;
+  await user.save({ validateBeforeSave: false });
+
+  const resetURL = `${req.protocol}://${req.get('host')}/user/resetPassword/${resetToken}`;
   const message = `Forgot your password? Submit a patch request with your new password and passwordConfirm to ${resetURL}\n if you didnt forget your password, please ignore thie email`;
 
-  sendMail({
-    to: user.email,
-    subject: 'Your password reset token (valid for 10 min)',
-    message,
-  });
+  try {
+    await sendMail({
+      to: user.email,
+      subject: 'Your password reset token (valid for 10 min)',
+      message,
+    });
+  } catch (err) {
+    user.resetToken = undefined;
+    user.resetTokenExpiresIn = undefined;
+    await user.save();
+
+    return next(
+      new AppError('There was an error sending the email. Try again later'),
+    );
+  }
 
   res.status(200).json({
     status: 'success',
@@ -143,4 +155,41 @@ exports.forgotPassword = catchAcync(async (req, res, next) => {
   });
 });
 
-exports.resetPassword = catchAcync(async (req, res, next) => {});
+exports.resetPassword = catchAcync(async (req, res, next) => {
+  if (!req.params.token)
+    return next(new AppError("The token doesn't exist", 400));
+
+  const hashedToken = crypto
+    .createHash('sha256')
+    .update(req.params.token)
+    .digest('hex');
+
+  const user = await User.findOne({
+    resetToken: hashedToken,
+    resetTokenExpiresIn: { $gt: Date.now() },
+  });
+
+  if (!user) return next(new AppError("The token doesn't exist", 400));
+
+  user.password = req.body.password;
+  user.confirmPassword = req.body.confirmPassword;
+  user.resetToken = undefined;
+  user.resetTokenExpiresIn = undefined;
+
+  await user.save();
+
+  const token = jwt.sign(
+    {
+      id: user._id,
+    },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: '90d',
+    },
+  );
+
+  res.status(200).json({
+    status: 'success',
+    token,
+  });
+});
