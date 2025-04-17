@@ -1,6 +1,0 @@
-// TODO: ADD LOAN
-// TODO: DELETE LOAN
-// TODO: UPDATE LOAN
-
-// aggrigator function
-// TODO: TOTAL DEABT AMOUNT
