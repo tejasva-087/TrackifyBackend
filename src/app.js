@@ -1,8 +1,9 @@
 const express = require('express');
 const morgan = require('morgan');
 
+const userRouter = require('./routes/userRoutes');
 const globalErrorHandler = require('./controllers/errorController');
-const AppError = require('./utils/AppError');
+const AppError = require('./utils/appError');
 
 const app = express();
 
@@ -15,7 +16,7 @@ if (process.env.NODE_ENV === 'development') {
 app.use(express.json());
 
 // HANDLING ROUTES
-// app.use('/user', userRouter);
+app.use('/user', userRouter);
 
 // HANDLING UNHANDLED ROUTE
 app.all('*', (req, res, next) => {
