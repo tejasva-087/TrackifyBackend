@@ -83,20 +83,24 @@ userSchema.methods.checkPassword = async function (
 // NOTE: checking if the password is modified after the token has been issued
 userSchema.methods.passwordChangedAfter = function (time) {
   if (!this.passwordModifiedAt) return false;
-  return this.passwordModifiedAt > time;
+  return Math.floor(this.passwordModifiedAt.getTime() / 1000) > time;
 };
 
 //  NOTE: creating a simple token for the letting the user resetting the password
 userSchema.methods.createPasswordResetToken = async function () {
   const token = await crypto.randomBytes(32).toString('hex');
-  this.passwordResetToken = await crypto.hash('sha256', token, 'hex');
+
+  this.passwordResetToken = await crypto
+    .createHash('sha256')
+    .update(token)
+    .digest('hex');
   this.passwordResetTokenCreatedAt = Date.now();
   await this.save();
   return token;
 };
 
 // NOTE: checking if the user is resetting the password within 10min
-userSchema.methods.passwordChangesAfter = function () {
+userSchema.methods.isPasswordResetTokenExpired = function () {
   return (
     Date.now() >
     new Date(this.passwordResetTokenCreatedAt).getTime() + 10 * 60 * 1000

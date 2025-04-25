@@ -6,9 +6,21 @@ const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
 const sendMail = require('../utils/email');
 
-const signToken = async function (id) {
+const signToken = function (id) {
   return jwt.sign({ id: id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES,
+  });
+};
+
+const sendUserToken = function (user, statusCode, res) {
+  const token = signToken(user._id);
+
+  res.status(statusCode).json({
+    status: 'success',
+    token,
+    data: {
+      user: { email: user.email, name: user.name },
+    },
   });
 };
 
@@ -16,15 +28,7 @@ exports.signUp = catchAsync(async (req, res) => {
   const { name, email, password, passwordConfirm } = req.body;
   const user = await User.create({ name, email, password, passwordConfirm });
 
-  const token = await signToken(user._id);
-
-  res.status(201).json({
-    status: 'success',
-    token,
-    data: {
-      user: { email: user.email, name: user.name },
-    },
-  });
+  sendUserToken(user, 201, res);
 });
 
 exports.login = catchAsync(async (req, res, next) => {
@@ -37,16 +41,7 @@ exports.login = catchAsync(async (req, res, next) => {
   if (!user || !passwordMatch)
     return next(new AppError('Either the password or email are invalid', 401));
 
-  const token = await signToken(user._id);
-
-  res.status(200).json({
-    status: 'success',
-    token,
-    user: {
-      name: user.name,
-      email: user.email,
-    },
-  });
+  sendUserToken(user, 200, res);
 });
 
 exports.protectedRoute = catchAsync(async (req, res, next) => {
@@ -96,14 +91,15 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
       text: message,
     });
   } catch (err) {
-    return next('There was  problem sending the password reset link.', 400);
+    return next(
+      new AppError('There was  problem sending the password reset link.', 400),
+    );
   }
 
   res.status(200).json({
     status: 'success',
     message:
       'A password reset link has been sent to your mail. Please use it to reset your password.',
-    resetPasswordToken,
   });
 });
 
@@ -120,12 +116,15 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
       ),
     );
 
-  const encryptedToken = await crypto.hash('sha256', resetToken, 'hex');
+  const encryptedToken = await crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
   const user = await User.findOne({
     passwordResetToken: encryptedToken,
   });
 
-  if (!user || user.passwordChangesAfter())
+  if (!user || user.isPasswordResetTokenExpired())
     return next(new AppError('The reset password link has been expired.', 400));
 
   user.password = password;
@@ -154,20 +153,12 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
     );
 
   const user = await User.findById(req.user._id).select('+password');
-  if (!user)
-    return next(
-      new AppError(
-        "Seems like the user doesn't exist but it wont ever reach this point ryt gemini because i am gonna use the protected routes ??????",
-      ),
-    );
-
-  if (!user.checkPassword(currentPassword, user.password))
+  if (!(await user.checkPassword(currentPassword, user.password)))
     return next(new AppError('The password is incorrect.'));
 
   user.password = newPassword;
   user.passwordConfirm = newPasswordConfirm;
+  await user.save();
 
-  await user.save({ validateBeforeSave: true });
-
-  res.end('Hello');
+  sendUserToken(user, 200, res);
 });
