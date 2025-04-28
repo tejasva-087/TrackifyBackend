@@ -1,23 +1,14 @@
 const nodemailer = require('nodemailer');
 
-const sendMail = async function ({ to, subject, message }) {
+module.exports = async ({ to, subject, text }) => {
   const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST_DEV,
-    port: process.env.EMAIL_PORT_DEV,
+    host: process.env.EMAIL_HOST,
+    port: process.env.EMAIL_PORT,
     auth: {
-      user: process.env.EMAIL_USERNAME_DEV,
-      pass: process.env.EMAIL_PASSWORD_DEV,
+      user: process.env.EMAIL_USERNAME,
+      pass: process.env.EMAIL_PASSWORD,
     },
   });
 
-  const mailOptions = {
-    from: `Trackify Bitches <someEmail@gmail.com>`,
-    to: to,
-    subject: subject,
-    text: message,
-  };
-
-  await transporter.sendMail(mailOptions);
+  await transporter.sendMail({ to, subject, text });
 };
-
-module.exports = sendMail;

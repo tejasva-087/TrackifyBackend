@@ -1,95 +1,112 @@
+const crypto = require('crypto');
+
 const mongoose = require('mongoose');
 const validator = require('validator');
 const bcrypt = require('bcrypt');
-const crypto = require('crypto');
 
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
-    lowercase: true,
-    required: [true, 'A user must have a name'],
-    minLength: [3, 'The name must be at least 3 characters'],
-    maxLength: [30, 'The name cannot be greater than 30 characters'],
+    required: [true, 'Please provide name.'],
     validate: {
-      validator: function (name) {
-        return validator.isAlpha(name.split(' ').join(''));
+      validator: (name) => {
+        validator.isAlpha(name.split(' ').join(''));
       },
-      message: 'The name can only contain alphabets',
+      message: 'Name can only have letters.',
     },
+    minLength: [3, 'Name must be at least 3 characters.'],
+    maxLength: [30, 'Name must not be greater then 30 characters.'],
   },
   email: {
     type: String,
-    unique: true,
-    required: [true, 'A user must have an email'],
-    validate: {
-      validator: validator.isEmail,
-      message: 'The email entered is not valid',
-    },
+    required: [true, 'Please provide email.'],
+    unique: [true, 'Another account with similar email already exists.'],
+    validate: [validator.isEmail, 'Please enter a valid email.'],
   },
   password: {
-    type: String,
-    required: [true, 'A user must provide a password'],
     select: false,
-    validate: {
-      validator: validator.isStrongPassword,
-      message:
-        'A password must have at least 8 characters and should include at least one lowercase character, uppercase character, number, and a symbol',
-    },
-  },
-  confirmPassword: {
     type: String,
-    required: [true, 'A user must provide a confirm password'],
+    required: [true, 'Please provide the password.'],
+    minLength: [8, 'Password mush have at least 8 characters.'],
+    validate: [
+      validator.isStrongPassword,
+      'Password mush have a symbols, uppercase and lowercase characters and numbers.',
+    ],
+  },
+  passwordConfirm: {
+    select: false,
+    type: String,
+    required: [true, 'Please provide a confirmation password.'],
     validate: {
-      validator: function (confirmPassword) {
-        return this.password === confirmPassword;
+      validator: function (password) {
+        return this.password === password;
       },
-      message: 'The passwords do not match',
+      message: 'The passwords do not match.',
     },
   },
-  changedPasswordAt: Date,
-  resetToken: String,
-  resetTokenExpiresIn: Date,
+  passwordModifiedAt: Date,
+  passwordResetToken: String,
+  passwordResetTokenCreatedAt: Date,
 });
 
-// if the password is modified then excripting it and storing it in the database before saving
+// ******************************
+// MIDDLEWARES
+// ******************************
+
+// NOTE: Encrypting the password if changed or newly created before saving
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
-
   this.password = await bcrypt.hash(this.password, 12);
-  this.confirmPassword = undefined;
+  this.passwordConfirm = undefined;
+  next();
 });
 
-// encrypting the password and then conparing it with the password stored in the database
+// NOTE: IF THE PASSWORD IS MODIFIED THEN CHANGING THE MODIFIED AT TIMING
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password') || this.isNew) return next();
+  this.passwordModifiedAt = Date.now();
+  next();
+});
 
-userSchema.methods.matchPassword = function (
+// ******************************
+// INSTANCE METHODS
+// ******************************
+
+// NOTE: comparing the un-hashed password with the hashed password
+userSchema.methods.checkPassword = async function (
   candidatePassword,
-  originalPassword,
+  password,
 ) {
-  return bcrypt.compare(candidatePassword, originalPassword);
+  return await bcrypt.compare(candidatePassword, password);
 };
 
-// checking if the user modified the password after a specific time
-userSchema.methods.changedPasswordAfter = function (time) {
-  if (!this.changedPasswordAt) return false;
-  if (this.changedPasswordAt.getTime() / 1000 > time) {
-    return true;
-  }
-  return false;
+// NOTE: checking if the password is modified after the token has been issued
+userSchema.methods.passwordChangedAfter = function (time) {
+  if (!this.passwordModifiedAt) return false;
+  return Math.floor(this.passwordModifiedAt.getTime() / 1000) > time;
 };
 
-// creating a user password reset token for user to reset the password
-userSchema.methods.createPasswordResetToken = function () {
-  const resetToken = crypto.randomBytes(32).toString('hex');
+//  NOTE: creating a simple token for the letting the user resetting the password
+userSchema.methods.createPasswordResetToken = async function () {
+  const token = await crypto.randomBytes(32).toString('hex');
 
-  this.resetToken = crypto
+  this.passwordResetToken = await crypto
     .createHash('sha256')
-    .update(resetToken)
+    .update(token)
     .digest('hex');
-  this.resetTokenExpiresIn = Date.now() + 10 * 60 * 1000;
-
-  return resetToken;
+  this.passwordResetTokenCreatedAt = Date.now();
+  await this.save();
+  return token;
 };
 
-// Export the model correctly
+// NOTE: checking if the user is resetting the password within 10min
+userSchema.methods.isPasswordResetTokenExpired = function () {
+  return (
+    Date.now() >
+    new Date(this.passwordResetTokenCreatedAt).getTime() + 10 * 60 * 1000
+  );
+};
+
 const User = mongoose.model('User', userSchema);
+
 module.exports = User;

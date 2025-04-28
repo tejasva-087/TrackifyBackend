@@ -1,7 +1,13 @@
-// TODO: UPDATE USER
+const User = require('../models/userModel');
+const catchAsync = require('../utils/catchAsync');
 
-exports.getUser = (req, res, next) => {
-  res.json({ user: req.user });
-};
+exports.getUser = catchAsync(async (req, res, next) => {
+  const user = await User.findById(req.user.id);
 
-exports.updateUser = (req, res, next) => {};
+  res.status(200).json({
+    status: 'success',
+    data: {
+      user,
+    },
+  });
+});
