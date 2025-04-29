@@ -44,6 +44,7 @@ const userSchema = new mongoose.Schema({
       message: 'The passwords do not match.',
     },
   },
+  active: { type: Boolean, default: false },
   passwordModifiedAt: Date,
   passwordResetToken: String,
   passwordResetTokenCreatedAt: Date,
