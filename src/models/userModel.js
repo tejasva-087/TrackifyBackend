@@ -44,7 +44,7 @@ const userSchema = new mongoose.Schema({
       message: 'The passwords do not match.',
     },
   },
-  active: { type: Boolean, default: false },
+  active: { type: Boolean, default: true },
   passwordModifiedAt: Date,
   passwordResetToken: String,
   passwordResetTokenCreatedAt: Date,
@@ -66,6 +66,12 @@ userSchema.pre('save', async function (next) {
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password') || this.isNew) return next();
   this.passwordModifiedAt = Date.now();
+  next();
+});
+
+// NOTE: If the user is not active it would not be sent
+userSchema.pre(/^find/, function (next) {
+  this.find({ active: { $ne: false } });
   next();
 });
 
