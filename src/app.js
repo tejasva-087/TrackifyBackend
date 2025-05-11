@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const hpp = require('hpp');
 
 const userRouter = require('./routes/userRoutes');
+const transactionRouter = require('./routes/transactionRoutes');
 const globalErrorHandler = require('./controllers/errorController');
 const AppError = require('./utils/appError');
 
@@ -41,7 +42,8 @@ app.use(xss());
 app.use(hpp());
 
 // HANDLING ROUTES
-app.use('/user', userRouter);
+app.use('/api/v1/user', userRouter);
+app.use('/api/v1/transaction', transactionRouter);
 
 // HANDLING UNHANDLED ROUTE
 app.all('*', (req, res, next) => {
